@@ -115,6 +115,7 @@ function onReady(id) {
 
 function onNotReady(_id) {
   setControlsEnabled(false);
+  showError('Reconnecting…');
   // After 3 s attempt to reconnect by re-initialising the player
   setTimeout(() => {
     initPlayer(getAccessToken, onReady, onNotReady, onState, onSdkError)
@@ -194,8 +195,6 @@ async function showPlayer() {
     selectByIndex: i => { if (playlists[i]) selectPlaylist(playlists[i]); },
   });
 
-  // Wire login button (if user somehow ends up back on login view)
-  document.getElementById('btn-login').addEventListener('click', () => startAuth(clientId));
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
