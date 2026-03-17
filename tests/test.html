@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>auth.js unit tests</title>
+  <style>
+    body { font-family: monospace; padding: 1rem; }
+    .pass { color: green; }
+    .fail { color: red;   }
+  </style>
+</head>
+<body>
+  <h1>auth.js unit tests</h1>
+  <pre id="output"></pre>
+  <script type="module">
+    import {
+      generateCodeVerifier,
+      generateCodeChallenge,
+      generateState,
+      storeTokens,
+      getAccessToken,
+      clearTokens,
+    } from '../app/auth.js';
+
+    const out = document.getElementById('output');
+    let passed = 0, failed = 0;
+
+    function assert(label, condition, detail = '') {
+      if (condition) {
+        out.innerHTML += `<span class="pass">✓ ${label}</span>\n`;
+        passed++;
+      } else {
+        out.innerHTML += `<span class="fail">✗ ${label}${detail ? ': ' + detail : ''}</span>\n`;
+        failed++;
+      }
+    }
+
+    // ── generateCodeVerifier ──────────────────────────────────────────────────
+    const v1 = generateCodeVerifier();
+    assert('generateCodeVerifier returns a string', typeof v1 === 'string');
+    assert('generateCodeVerifier length is 86 chars', v1.length === 86, `got ${v1.length}`);
+    assert('generateCodeVerifier uses base64url chars only', /^[A-Za-z0-9\-_]+$/.test(v1));
+
+    const v2 = generateCodeVerifier();
+    assert('generateCodeVerifier produces unique values', v1 !== v2);
+
+    // ── generateCodeChallenge ─────────────────────────────────────────────────
+    // Known test vector: SHA-256('abc') base64url = 'ungWv48Bz-pBQUDeXa4iI7ADYaOWF3qctBD_YfIAFa0'
+    const challenge = await generateCodeChallenge('abc');
+    assert(
+      'generateCodeChallenge produces correct SHA-256 for "abc"',
+      challenge === 'ungWv48Bz-pBQUDeXa4iI7ADYaOWF3qctBD_YfIAFa0',
+      `got ${challenge}`
+    );
+    assert('generateCodeChallenge returns base64url chars only', /^[A-Za-z0-9\-_]+$/.test(challenge));
+
+    const c2 = await generateCodeChallenge(v1);
+    assert('generateCodeChallenge returns a string', typeof c2 === 'string');
+    assert('generateCodeChallenge result has no padding', !c2.includes('='));
+
+    // ── generateState ─────────────────────────────────────────────────────────
+    const s1 = generateState();
+    assert('generateState returns a 32-char hex string', s1.length === 32 && /^[0-9a-f]+$/.test(s1));
+    const s2 = generateState();
+    assert('generateState produces unique values', s1 !== s2);
+
+    // ── storeTokens / getAccessToken / clearTokens ────────────────────────────
+    storeTokens({ access_token: 'tok_abc', refresh_token: 'ref_xyz', expires_in: 3600 });
+    assert('getAccessToken returns stored access token', getAccessToken() === 'tok_abc');
+    assert('refresh_token stored in sessionStorage', sessionStorage.getItem('refresh_token') === 'ref_xyz');
+    assert('token_expiry stored', sessionStorage.getItem('token_expiry') !== null);
+
+    // Token rotation: new refresh token overwrites old
+    storeTokens({ access_token: 'tok_new', refresh_token: 'ref_new', expires_in: 3600 });
+    assert('storeTokens overwrites refresh token on rotation', sessionStorage.getItem('refresh_token') === 'ref_new');
+
+    // Missing refresh_token in response (not rotated) — should not overwrite
+    storeTokens({ access_token: 'tok_new2', expires_in: 3600 });
+    assert('storeTokens keeps existing refresh_token when not in response', sessionStorage.getItem('refresh_token') === 'ref_new');
+
+    clearTokens();
+    assert('clearTokens removes access_token', getAccessToken() === null);
+    assert('clearTokens removes refresh_token', sessionStorage.getItem('refresh_token') === null);
+
+    // ── Summary ───────────────────────────────────────────────────────────────
+    out.innerHTML += `\n${passed} passed, ${failed} failed`;
+  </script>
+</body>
+</html>
