@@ -81,6 +81,7 @@
     clearTokens();
     assert('clearTokens removes access_token', getAccessToken() === null);
     assert('clearTokens removes refresh_token', sessionStorage.getItem('refresh_token') === null);
+    assert('clearTokens removes token_expiry', sessionStorage.getItem('token_expiry') === null);
 
     // ── Summary ───────────────────────────────────────────────────────────────
     out.innerHTML += `\n${passed} passed, ${failed} failed`;
