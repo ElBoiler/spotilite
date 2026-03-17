@@ -10,7 +10,9 @@ const SCOPES = [
   'playlist-read-private',
 ].join(' ');
 
-const REDIRECT_URI = 'http://localhost:8080';
+// Spotify prohibits 'localhost' as a redirect URI; 127.0.0.1 is explicitly allowed.
+// Access the app at http://127.0.0.1:8080 (not localhost:8080).
+const REDIRECT_URI = 'http://127.0.0.1:8080';
 const TOKEN_URL    = 'https://accounts.spotify.com/api/token';
 const AUTH_URL     = 'https://accounts.spotify.com/authorize';
 

@@ -14,7 +14,7 @@ Browse your Daily Mix playlists and control playback from a clean web UI.
 
 1. Go to [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
 2. Click **Create app**
-3. Under **Redirect URIs** add exactly: `http://localhost:8080` *(no trailing slash)*
+3. Under **Redirect URIs** add exactly: `http://127.0.0.1:8080` *(Spotify blocks `localhost` — use the IP)*
 4. Save. Copy the **Client ID**.
 
 > **Daily Mixes not appearing?** Open Spotify and follow each Daily Mix playlist first.
@@ -26,7 +26,9 @@ Browse your Daily Mix playlists and control playback from a clean web UI.
 docker run -e SPOTIFY_CLIENT_ID=your_client_id_here -p 8080:80 light-spotting
 ```
 
-Open [http://localhost:8080](http://localhost:8080) in your browser and log in.
+Open [http://127.0.0.1:8080](http://127.0.0.1:8080) in your browser and log in.
+
+> **Use `127.0.0.1`, not `localhost`** — Spotify redirects back to the exact URI you registered, so both your browser and the Spotify dashboard must use `127.0.0.1:8080`.
 
 ## Build locally
 
@@ -49,5 +51,5 @@ docker run -e SPOTIFY_CLIENT_ID=your_client_id -p 8080:80 light-spotting
 ## Notes
 
 - Audio plays in the browser tab — keep it open while listening
-- Works on `localhost` only (Spotify SDK requires a secure context)
+- Use `http://127.0.0.1:8080` — Spotify blocks `localhost` as a redirect URI; `127.0.0.1` is the allowed loopback form
 - Tokens are stored in `sessionStorage` — log in again after closing the tab
