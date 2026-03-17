@@ -41,20 +41,22 @@ if (!clientId) {
   throw new Error('SPOTIFY_CLIENT_ID is not set');
 }
 
-let deviceId     = null;
-let isPaused     = true;
-let playlists    = [];
-let activeUri    = null;
-let _player      = null;
+let deviceId      = null;
+let isPaused      = true;
+let playlists     = [];
+let activeUri     = null;
+let _player       = null;
 let _reconnecting = false;
+let _refreshTimer = null;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function handleApiError(err, context) {
   if (err.status === 401) {
+    if (_refreshTimer) { clearTimeout(_refreshTimer); _refreshTimer = null; }
     clearTokens();
-    showError('Session expired. Please log in again.');
     showLoginView();
+    showError('Session expired. Please log in again.');
   } else {
     showError(`${context}: ${err.message}`);
   }
@@ -172,7 +174,7 @@ async function showPlayer() {
   try {
     playlists = await fetchDailyMixes(token);
     if (playlists.length === 0) {
-      showError('No Daily Mix playlists found in your library.');
+      showError('No Daily Mix playlists found. Make sure you follow them in Spotify.');
     } else {
       hideError();
     }
@@ -189,10 +191,12 @@ async function showPlayer() {
   }
 
   // Schedule token refresh
-  scheduleRefresh(clientId, getTokenExpiresIn() || 3600, () => {
+  // If token is already near/past expiry, use 60s so refresh fires soon.
+  _refreshTimer = scheduleRefresh(clientId, getTokenExpiresIn() || 60, () => {
+    if (_refreshTimer) { clearTimeout(_refreshTimer); _refreshTimer = null; }
     clearTokens();
-    showError('Session expired. Please log in again.');
     showLoginView();
+    showError('Session expired. Please log in again.');
   });
 
   // Wire transport buttons
