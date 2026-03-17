@@ -15,9 +15,7 @@ const SDK_URL = 'https://sdk.scdn.co/spotify-player.js';
  */
 export function initPlayer(getToken, onReady, onNotReady, onState, onError) {
   return new Promise((resolve, reject) => {
-    // Set the global callback before injecting the script tag.
-    // The SDK calls this after loading.
-    window.onSpotifyWebPlaybackSDKReady = () => {
+    function createPlayer() {
       const player = new window.Spotify.Player({
         name:          'Light Spotting',
         getOAuthToken: cb => cb(getToken()), // always reads fresh token from storage
@@ -33,11 +31,23 @@ export function initPlayer(getToken, onReady, onNotReady, onState, onError) {
 
       player.connect();
       resolve(player);
-    };
+    }
+
+    // If SDK already loaded, create the player directly without script injection.
+    // onSpotifyWebPlaybackSDKReady only fires once, so re-injecting the script
+    // would leave the Promise unresolved on reconnect.
+    if (window.Spotify) {
+      createPlayer();
+      return;
+    }
+
+    // Set the global callback before injecting the script tag.
+    // The SDK calls this after loading.
+    window.onSpotifyWebPlaybackSDKReady = createPlayer;
 
     // Inject the SDK script tag
-    const script  = document.createElement('script');
-    script.src    = SDK_URL;
+    const script   = document.createElement('script');
+    script.src     = SDK_URL;
     script.onerror = () => reject(new Error('Failed to load Spotify SDK'));
     document.body.appendChild(script);
   });
