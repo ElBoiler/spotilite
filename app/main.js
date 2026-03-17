@@ -7,6 +7,7 @@ import {
   getAccessToken,
   clearTokens,
   scheduleRefresh,
+  getTokenExpiresIn,
 } from './auth.js';
 
 import {
@@ -35,11 +36,17 @@ import {
 // ─── Module-level state ───────────────────────────────────────────────────────
 
 const clientId = window.SPOTIFY_CLIENT_ID;
+if (!clientId) {
+  document.body.textContent = 'Error: SPOTIFY_CLIENT_ID is not configured. Did you pass -e SPOTIFY_CLIENT_ID=... to docker run?';
+  throw new Error('SPOTIFY_CLIENT_ID is not set');
+}
 
-let deviceId  = null;
-let isPaused  = true;
-let playlists = [];
-let activeUri = null;
+let deviceId     = null;
+let isPaused     = true;
+let playlists    = [];
+let activeUri    = null;
+let _player      = null;
+let _reconnecting = false;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -110,16 +117,24 @@ async function handleNext() {
 
 function onReady(id) {
   deviceId = id;
+  _reconnecting = false;
   setControlsEnabled(true);
 }
 
 function onNotReady(_id) {
+  if (_reconnecting) return;
+  _reconnecting = true;
   setControlsEnabled(false);
   showError('Reconnecting…');
+  _player?.disconnect();
   // After 3 s attempt to reconnect by re-initialising the player
-  setTimeout(() => {
-    initPlayer(getAccessToken, onReady, onNotReady, onState, onSdkError)
-      .catch(err => showError(`SDK reconnect failed: ${err.message}`));
+  setTimeout(async () => {
+    try {
+      _player = await initPlayer(getAccessToken, onReady, onNotReady, onState, onSdkError);
+    } catch (err) {
+      showError(`SDK reconnect failed: ${err.message}`);
+      _reconnecting = false; // allow future attempts if reconnect itself fails
+    }
   }, 3000);
 }
 
@@ -168,15 +183,13 @@ async function showPlayer() {
 
   // Initialise Web Playback SDK
   try {
-    await initPlayer(getAccessToken, onReady, onNotReady, onState, onSdkError);
+    _player = await initPlayer(getAccessToken, onReady, onNotReady, onState, onSdkError);
   } catch (err) {
     showError(`Failed to load Spotify SDK: ${err.message}`);
   }
 
   // Schedule token refresh
-  const expiry    = parseInt(sessionStorage.getItem('token_expiry') || '0', 10);
-  const expiresIn = Math.max(0, Math.floor((expiry - Date.now()) / 1000));
-  scheduleRefresh(clientId, expiresIn || 3600, () => {
+  scheduleRefresh(clientId, getTokenExpiresIn() || 3600, () => {
     clearTokens();
     showError('Session expired. Please log in again.');
     showLoginView();

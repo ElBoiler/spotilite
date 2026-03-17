@@ -192,6 +192,15 @@ export async function refreshTokens(clientId) {
 }
 
 /**
+ * Returns seconds remaining until the access token expires.
+ * Returns 0 if expiry is unknown or already past.
+ */
+export function getTokenExpiresIn() {
+  const expiry = parseInt(sessionStorage.getItem('token_expiry') || '0', 10);
+  return Math.max(0, Math.floor((expiry - Date.now()) / 1000));
+}
+
+/**
  * Schedule a token refresh (expires_in - 300) seconds from now.
  * Recursively reschedules itself after each successful refresh.
  *
