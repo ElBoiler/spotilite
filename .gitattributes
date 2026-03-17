@@ -1,2 +1,8 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Normalise line endings to LF in the repo
+* text=auto eol=lf
+
+# Shell scripts must always be LF — CRLF breaks shebangs on Linux
+*.sh text eol=lf
+
+# Windows/cross-platform text — let the OS decide
+*.md text eol=auto
