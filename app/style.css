@@ -1,0 +1,113 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: #121212;
+  color: #fff;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 4rem;
+  min-height: 100vh;
+}
+
+.container {
+  width: 320px;
+  padding: 1.5rem;
+}
+
+h1 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1DB954;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 1.5rem;
+}
+
+/* ── Error banner ── */
+#error-msg {
+  background: #3e0c0c;
+  color: #ff8080;
+  padding: 0.6rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  margin-bottom: 1rem;
+  line-height: 1.4;
+}
+
+/* ── Login view ── */
+#login-view {
+  text-align: center;
+  padding: 2rem 0;
+}
+
+#btn-login {
+  background: #1DB954;
+  color: #000;
+  border: none;
+  border-radius: 2rem;
+  padding: 0.75rem 2rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+#btn-login:hover { background: #1ed760; }
+
+/* ── Playlist list ── */
+#playlist-list {
+  list-style: none;
+  margin-bottom: 1.5rem;
+}
+
+#playlist-list li {
+  padding: 0.45rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #b3b3b3;
+  transition: color 0.1s, background 0.1s;
+}
+
+#playlist-list li:hover        { color: #fff; background: #282828; }
+#playlist-list li.active       { color: #1DB954; font-weight: 600; }
+#playlist-list li .index-hint  { color: #535353; font-size: 0.75rem; margin-right: 0.3rem; }
+
+/* ── Now playing ── */
+#now-playing {
+  min-height: 2.8rem;
+  margin-bottom: 0.75rem;
+}
+
+#track-name  { display: block; font-weight: 600; font-size: 0.875rem; }
+#artist-name { display: block; font-size: 0.8rem; color: #b3b3b3; margin-top: 0.1rem; }
+
+/* ── Transport controls ── */
+#controls {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+#status-msg {
+  font-size: 0.75rem;
+  color: #b3b3b3;
+  flex: 1;
+}
+
+#controls button {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0.3rem 0.5rem;
+  border-radius: 4px;
+  line-height: 1;
+  transition: background 0.1s;
+}
+
+#controls button:hover:not(:disabled) { background: #282828; }
+#controls button:disabled { color: #535353; cursor: default; }

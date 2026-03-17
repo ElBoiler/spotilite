@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Light Spotting</title>
+  <link rel="stylesheet" href="style.css">
+  <script>window.SPOTIFY_CLIENT_ID = '__SPOTIFY_CLIENT_ID__';</script>
+</head>
+<body>
+  <div class="container">
+    <h1>Light Spotting</h1>
+
+    <div id="error-msg" hidden></div>
+
+    <section id="login-view">
+      <button id="btn-login">Login with Spotify</button>
+    </section>
+
+    <section id="player-view" hidden>
+      <ul id="playlist-list" aria-label="Daily Mix playlists"></ul>
+
+      <div id="now-playing" aria-live="polite">
+        <span id="track-name">—</span>
+        <span id="artist-name"></span>
+      </div>
+
+      <div id="controls">
+        <span id="status-msg" role="status"></span>
+        <button id="btn-prev"      disabled title="Previous (←)"      aria-label="Previous">⏮</button>
+        <button id="btn-playpause" disabled title="Play/Pause (Space)" aria-label="Play">▶</button>
+        <button id="btn-next"      disabled title="Next (→)"          aria-label="Next">⏭</button>
+      </div>
+    </section>
+  </div>
+
+  <!--
+    main.js loads the Spotify SDK dynamically after auth succeeds.
+    This avoids SDK/module load order race conditions.
+  -->
+  <script type="module" src="main.js"></script>
+</body>
+</html>
