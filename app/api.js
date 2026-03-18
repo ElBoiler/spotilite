@@ -38,6 +38,10 @@ async function apiFetch(accessToken, path, options = {}) {
   // 204 No Content (pause, skip, etc.)
   if (res.status === 204) return null;
 
+  // Some Spotify endpoints return 200 with a non-JSON body
+  const ct = res.headers.get('content-type') || '';
+  if (!ct.includes('application/json')) return null;
+
   return res.json();
 }
 
