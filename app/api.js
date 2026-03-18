@@ -62,7 +62,7 @@ export async function fetchDailyMixes(accessToken) {
     const data = await apiFetch(accessToken, path);
 
     const filtered = (data.items || []).filter(
-      p => p && p.owner?.id === 'spotify' && p.name?.startsWith('Daily Mix')
+      p => p && p.owner?.id === 'spotify'
     );
     mixes.push(...filtered);
 
@@ -71,6 +71,16 @@ export async function fetchDailyMixes(accessToken) {
   }
 
   return mixes.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Fetch a single playlist by ID.
+ * @param {string} accessToken
+ * @param {string} id - Spotify playlist ID
+ * @returns {Promise<{id: string, name: string, uri: string}>}
+ */
+export async function fetchPlaylistById(accessToken, id) {
+  return apiFetch(accessToken, `/playlists/${encodeURIComponent(id)}?fields=id%2Cname%2Curi&market=from_token`);
 }
 
 // ─── Playback ─────────────────────────────────────────────────────────────────

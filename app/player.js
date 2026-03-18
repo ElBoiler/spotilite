@@ -17,7 +17,7 @@ export function initPlayer(getToken, onReady, onNotReady, onState, onError) {
   return new Promise((resolve, reject) => {
     function createPlayer() {
       const player = new window.Spotify.Player({
-        name:          'Light Spotting',
+        name:          'Spotilite',
         getOAuthToken: cb => cb(getToken()), // always reads fresh token from storage
         volume:        0.8,
       });

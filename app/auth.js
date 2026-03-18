@@ -154,7 +154,8 @@ export function storeTokens({ access_token, refresh_token, expires_in }) {
 
 /** @returns {string|null} */
 export function getAccessToken() {
-  return sessionStorage.getItem('access_token');
+  const t = sessionStorage.getItem('access_token');
+  return t ? t.trim() : null;
 }
 
 export function clearTokens() {

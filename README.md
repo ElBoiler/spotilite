@@ -17,8 +17,8 @@ Browse your Daily Mix playlists and control playback from a clean web UI.
 3. Under **Redirect URIs** add exactly: `http://127.0.0.1:8080` *(Spotify blocks `localhost` — use the IP)*
 4. Save. Copy the **Client ID**.
 
-> **Daily Mixes not appearing?** Open Spotify and follow each Daily Mix playlist first.
-> They only appear via the API once you've followed them.
+> **Daily Mixes not appearing?** Open Spotify and save each Daily Mix to your library first.
+> They only appear via the API once they're in your library.
 
 ## Run
 

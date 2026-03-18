@@ -3,22 +3,30 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Light Spotting</title>
+  <title>Spotilite</title>
   <link rel="stylesheet" href="style.css">
   <script>window.SPOTIFY_CLIENT_ID = '__SPOTIFY_CLIENT_ID__';</script>
 </head>
 <body>
   <div class="container">
-    <h1>Light Spotting</h1>
-
-    <div id="error-msg" hidden></div>
+    <h1>Spotilite</h1>
 
     <section id="login-view">
       <button id="btn-login">Login with Spotify</button>
     </section>
 
+    <section id="setup-view" hidden>
+      <p class="setup-hint">One playlist per line. Optionally prefix with a name:<br>
+        <code>Daily Mix 1 | https://open.spotify.com/playlist/…</code><br>
+        In Spotify: right-click a playlist → Share → Copy link to playlist</p>
+      <textarea id="setup-input" rows="7" spellcheck="false"
+        placeholder="https://open.spotify.com/playlist/..."></textarea>
+      <button id="btn-save-playlists">Save &amp; continue</button>
+    </section>
+
     <section id="player-view" hidden>
       <ul id="playlist-list" aria-label="Daily Mix playlists"></ul>
+      <button id="btn-manage">✏ Edit playlists</button>
 
       <div id="now-playing" aria-live="polite">
         <span id="track-name">—</span>
@@ -32,6 +40,7 @@
         <button id="btn-next"      disabled title="Next (→)"          aria-label="Next">⏭</button>
       </div>
     </section>
+    <div id="error-msg" hidden></div>
   </div>
 
   <!--
