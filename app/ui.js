@@ -4,12 +4,28 @@
 
 export function showLoginView() {
   document.getElementById('login-view').hidden  = false;
+  document.getElementById('setup-view').hidden  = true;
+  document.getElementById('player-view').hidden = true;
+}
+
+export function showSetupView() {
+  document.getElementById('login-view').hidden  = true;
+  document.getElementById('setup-view').hidden  = false;
   document.getElementById('player-view').hidden = true;
 }
 
 export function showPlayerView() {
   document.getElementById('login-view').hidden  = true;
+  document.getElementById('setup-view').hidden  = true;
   document.getElementById('player-view').hidden = false;
+}
+
+export function getSetupInput() {
+  return document.getElementById('setup-input').value;
+}
+
+export function setSetupInput(value) {
+  document.getElementById('setup-input').value = value;
 }
 
 // ─── Error banner ─────────────────────────────────────────────────────────────

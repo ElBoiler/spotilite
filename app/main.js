@@ -11,7 +11,6 @@ import {
 } from './auth.js';
 
 import {
-  fetchDailyMixes,
   playPlaylist,
   resumePlayback,
   pausePlayback,
@@ -23,6 +22,7 @@ import { initPlayer } from './player.js';
 
 import {
   showLoginView,
+  showSetupView,
   showPlayerView,
   showError,
   hideError,
@@ -31,6 +31,8 @@ import {
   updatePlayPauseButton,
   setControlsEnabled,
   bindKeyboard,
+  getSetupInput,
+  setSetupInput,
 } from './ui.js';
 
 // ─── Module-level state ───────────────────────────────────────────────────────
@@ -48,6 +50,76 @@ let activeUri     = null;
 let _player       = null;
 let _reconnecting = false;
 let _refreshTimer = null;
+
+// ─── Playlist storage (localStorage) ─────────────────────────────────────────
+
+const PLAYLISTS_KEY = 'saved_playlists';
+
+/** @returns {Array<{uri: string, name: string}>} */
+function loadSavedPlaylists() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PLAYLISTS_KEY) || '[]');
+    // Migrate old format (array of URI strings)
+    if (raw.length && typeof raw[0] === 'string') {
+      return raw.map((uri, i) => ({ uri, name: `Playlist ${i + 1}` }));
+    }
+    return raw;
+  } catch { return []; }
+}
+
+/** @param {Array<{uri: string, name: string}>} items */
+function savePlaylists(items) {
+  localStorage.setItem(PLAYLISTS_KEY, JSON.stringify(items));
+}
+
+/**
+ * Parse textarea input into [{uri, name}] objects.
+ * Each line may be:
+ *   "Name | https://open.spotify.com/playlist/ID"
+ *   "https://open.spotify.com/playlist/ID"
+ *   "spotify:playlist:ID"
+ *   "ID"  (bare 22-char base62)
+ */
+function parsePlaylistInput(raw) {
+  const seen   = new Set();
+  const result = [];
+
+  for (const line of raw.split('\n').map(l => l.trim()).filter(Boolean)) {
+    let name    = null;
+    let urlPart = line;
+
+    const pipe = line.indexOf('|');
+    if (pipe !== -1) {
+      name    = line.slice(0, pipe).trim() || null;
+      urlPart = line.slice(pipe + 1).trim();
+    }
+
+    let uri = null;
+    const m = urlPart.match(/open\.spotify\.com\/playlist\/([A-Za-z0-9]+)/);
+    if (m) {
+      uri = `spotify:playlist:${m[1]}`;
+    } else if (/^spotify:playlist:[A-Za-z0-9]+$/.test(urlPart)) {
+      uri = urlPart;
+    } else if (/^[A-Za-z0-9]{22}$/.test(urlPart)) {
+      uri = `spotify:playlist:${urlPart}`;
+    }
+
+    if (!uri || seen.has(uri)) continue;
+    seen.add(uri);
+    result.push({ uri, name: name || `Playlist ${result.length + 1}` });
+  }
+
+  return result;
+}
+
+function playlistsToText(items) {
+  return items
+    .map(p => {
+      const url = `https://open.spotify.com/playlist/${p.uri.replace('spotify:playlist:', '')}`;
+      return `${p.name} | ${url}`;
+    })
+    .join('\n');
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -129,13 +201,12 @@ function onNotReady(_id) {
   setControlsEnabled(false);
   showError('Reconnecting…');
   _player?.disconnect();
-  // After 3 s attempt to reconnect by re-initialising the player
   setTimeout(async () => {
     try {
       _player = await initPlayer(getAccessToken, onReady, onNotReady, onState, onSdkError);
     } catch (err) {
       showError(`SDK reconnect failed: ${err.message}`);
-      _reconnecting = false; // allow future attempts if reconnect itself fails
+      _reconnecting = false;
     }
   }, 3000);
 }
@@ -143,9 +214,9 @@ function onNotReady(_id) {
 function onState(state) {
   if (!state) return;
 
-  const track       = state.track_window?.current_track;
-  const trackName   = track?.name   ?? null;
-  const artistName  = track?.artists?.map(a => a.name).join(', ') ?? null;
+  const track      = state.track_window?.current_track;
+  const trackName  = track?.name   ?? null;
+  const artistName = track?.artists?.map(a => a.name).join(', ') ?? null;
 
   updateNowPlaying(trackName, artistName);
 
@@ -162,74 +233,84 @@ function onSdkError(type, message) {
   showError(`SDK error (${type}): ${message}`);
 }
 
-// ─── Player view bootstrap ───────────────────────────────────────────────────
+// ─── Setup view ───────────────────────────────────────────────────────────────
+
+function showSetup() {
+  showSetupView();
+  const existing = loadSavedPlaylists();
+  if (existing.length) setSetupInput(playlistsToText(existing));
+}
+
+function handleSavePlaylists() {
+  const items = parsePlaylistInput(getSetupInput());
+  if (!items.length) {
+    showError('No valid playlist links found. Paste Spotify playlist URLs, one per line.');
+    return;
+  }
+
+  savePlaylists(items);
+  playlists = items;
+  hideError();
+
+  if (_player) {
+    renderPlaylists(playlists, activeUri, selectPlaylist);
+    showPlayerView();
+  } else {
+    showPlayer();
+  }
+}
+
+// ─── Player view bootstrap ────────────────────────────────────────────────────
 
 async function showPlayer() {
   showPlayerView();
   setControlsEnabled(false);
 
-  const token = getAccessToken();
+  // Load playlists from storage — no API call needed
+  playlists = loadSavedPlaylists();
+  renderPlaylists(playlists, activeUri, selectPlaylist);
+  hideError();
 
-  // Fetch and render playlists
-  try {
-    playlists = await fetchDailyMixes(token);
-    if (playlists.length === 0) {
-      showError('No Daily Mix playlists found. Make sure you follow them in Spotify.');
-    } else {
-      hideError();
+  // One-time SDK init and event wiring
+  if (!_player) {
+    try {
+      _player = await initPlayer(getAccessToken, onReady, onNotReady, onState, onSdkError);
+    } catch (err) {
+      showError(`Failed to load Spotify SDK: ${err.message}`);
     }
-    renderPlaylists(playlists, activeUri, selectPlaylist);
-  } catch (err) {
-    handleApiError(err, 'Fetch playlists');
+
+    _refreshTimer = scheduleRefresh(clientId, getTokenExpiresIn() || 60, () => {
+      if (_refreshTimer) { clearTimeout(_refreshTimer); _refreshTimer = null; }
+      clearTokens();
+      showLoginView();
+      showError('Session expired. Please log in again.');
+    });
+
+    document.getElementById('btn-prev').addEventListener('click', handlePrev);
+    document.getElementById('btn-playpause').addEventListener('click', handleTogglePlay);
+    document.getElementById('btn-next').addEventListener('click', handleNext);
+
+    bindKeyboard({
+      togglePlay:    handleTogglePlay,
+      next:          handleNext,
+      prev:          handlePrev,
+      selectByIndex: i => { if (playlists[i]) selectPlaylist(playlists[i]); },
+    });
   }
-
-  // Initialise Web Playback SDK
-  try {
-    _player = await initPlayer(getAccessToken, onReady, onNotReady, onState, onSdkError);
-  } catch (err) {
-    showError(`Failed to load Spotify SDK: ${err.message}`);
-  }
-
-  // Schedule token refresh
-  // If token is already near/past expiry, use 60s so refresh fires soon.
-  _refreshTimer = scheduleRefresh(clientId, getTokenExpiresIn() || 60, () => {
-    if (_refreshTimer) { clearTimeout(_refreshTimer); _refreshTimer = null; }
-    clearTokens();
-    showLoginView();
-    showError('Session expired. Please log in again.');
-  });
-
-  // Wire transport buttons
-  document.getElementById('btn-prev').addEventListener('click', handlePrev);
-  document.getElementById('btn-playpause').addEventListener('click', handleTogglePlay);
-  document.getElementById('btn-next').addEventListener('click', handleNext);
-
-  // Wire keyboard shortcuts
-  bindKeyboard({
-    togglePlay:    handleTogglePlay,
-    next:          handleNext,
-    prev:          handlePrev,
-    selectByIndex: i => { if (playlists[i]) selectPlaylist(playlists[i]); },
-  });
-
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 async function init() {
-  // Wire login button early so it works on the login view
   document.getElementById('btn-login').addEventListener('click', () => startAuth(clientId));
+  document.getElementById('btn-save-playlists').addEventListener('click', handleSavePlaylists);
+  document.getElementById('btn-manage').addEventListener('click', showSetup);
 
-  // Handle OAuth callback (URL has ?code= or ?error=)
   const params = new URLSearchParams(window.location.search);
   if (params.has('code') || params.has('error')) {
     try {
       const tokens = await handleCallback(clientId);
-      if (tokens === null) {
-        // Shouldn't happen if we checked params, but handle gracefully
-        showLoginView();
-        return;
-      }
+      if (tokens === null) { showLoginView(); return; }
     } catch (err) {
       showError(err.message);
       showLoginView();
@@ -237,9 +318,13 @@ async function init() {
     }
   }
 
-  // Decide which view to show
   if (getAccessToken()) {
-    await showPlayer();
+    const saved = loadSavedPlaylists();
+    if (saved.length === 0) {
+      showSetup();
+    } else {
+      await showPlayer();
+    }
   } else {
     showLoginView();
   }

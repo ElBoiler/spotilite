@@ -32,7 +32,7 @@ h1 {
   padding: 0.6rem 0.75rem;
   border-radius: 4px;
   font-size: 0.8rem;
-  margin-bottom: 1rem;
+  margin-top: 1rem;
   line-height: 1.4;
 }
 
@@ -55,6 +55,70 @@ h1 {
 }
 
 #btn-login:hover { background: #1ed760; }
+
+/* ── Setup view ── */
+#setup-view { padding: 0.5rem 0; }
+
+.setup-hint {
+  font-size: 0.8rem;
+  color: #b3b3b3;
+  line-height: 1.5;
+  margin-bottom: 0.75rem;
+}
+
+.setup-hint code {
+  font-size: 0.72rem;
+  color: #1DB954;
+  background: #1a1a1a;
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+}
+
+#setup-input {
+  width: 100%;
+  background: #282828;
+  color: #fff;
+  border: 1px solid #404040;
+  border-radius: 4px;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.78rem;
+  font-family: monospace;
+  resize: vertical;
+  margin-bottom: 0.75rem;
+  line-height: 1.6;
+}
+
+#setup-input:focus { outline: none; border-color: #1DB954; }
+
+#btn-save-playlists {
+  width: 100%;
+  background: #1DB954;
+  color: #000;
+  border: none;
+  border-radius: 2rem;
+  padding: 0.6rem 1.5rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+#btn-save-playlists:hover:not(:disabled) { background: #1ed760; }
+#btn-save-playlists:disabled { background: #535353; color: #888; cursor: default; }
+
+/* ── Manage button ── */
+#btn-manage {
+  display: block;
+  background: none;
+  border: none;
+  color: #535353;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0 0 1rem;
+  transition: color 0.1s;
+}
+
+#btn-manage:hover { color: #b3b3b3; }
 
 /* ── Playlist list ── */
 #playlist-list {
