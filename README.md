@@ -1,43 +1,26 @@
-# light-spotting
+# Spotilite
 
-A minimal Spotify controller that runs in Docker. No Spotify desktop app needed — just a browser tab.
+A minimal Spotify controller that runs entirely in your browser. No desktop app, no Docker, no install.
 
-Browse your Daily Mix playlists and control playback from a clean web UI.
+Browse your saved playlists and control playback from a clean web UI.
 
 ## Requirements
 
-- Docker
 - Spotify Premium account
-- A browser on the same machine as Docker
+- A modern browser
 
-## One-time Spotify setup
+## Setup (one time, ~2 minutes)
 
-1. Go to [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
-2. Click **Create app**
-3. Under **Redirect URIs** add exactly: `http://127.0.0.1:8080` *(Spotify blocks `localhost` — use the IP)*
-4. Save. Copy the **Client ID**.
+1. Go to [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) and click **Create app**.
+2. Under **Redirect URIs** add the URL where you'll open Spotilite — **exactly**, including the trailing slash:
+   - Hosted: `https://<your-github-username>.github.io/light-spotting/`
+   - Local:  `http://127.0.0.1:8080/` *(Spotify blocks `localhost` — use the IP)*
+3. Save the app and copy the **Client ID**.
+4. Open Spotilite, paste the Client ID when prompted, click **Save**.
+5. Click **Login with Spotify** and grant access.
+6. Paste your Spotify playlist links, one per line. Right-click a playlist in Spotify → Share → Copy link to playlist.
 
-> **Daily Mixes not appearing?** Open Spotify and save each Daily Mix to your library first.
-> They only appear via the API once they're in your library.
-
-## Run
-
-```sh
-docker run -e SPOTIFY_CLIENT_ID=your_client_id_here -p 8080:80 light-spotting
-```
-
-Open [http://127.0.0.1:8080](http://127.0.0.1:8080) in your browser and log in.
-
-> **Use `127.0.0.1`, not `localhost`** — Spotify redirects back to the exact URI you registered, so both your browser and the Spotify dashboard must use `127.0.0.1:8080`.
-
-## Build locally
-
-```sh
-git clone <this repo>
-cd light-spotting
-docker build -t light-spotting .
-docker run -e SPOTIFY_CLIENT_ID=your_client_id -p 8080:80 light-spotting
-```
+That's it. Your Client ID and playlists are stored in your browser's `localStorage`; tokens live in `sessionStorage` and clear on tab close.
 
 ## Controls
 
@@ -48,8 +31,24 @@ docker run -e SPOTIFY_CLIENT_ID=your_client_id -p 8080:80 light-spotting
 | Previous   | ⏮ button   | `←`      |
 | Select mix | Click row  | `1`–`6`  |
 
+## Self-host / run locally
+
+The whole app is static files. To host your own copy:
+
+**GitHub Pages (recommended).** Fork this repo, then in your fork's *Settings → Pages*, set source to **Deploy from a branch**, branch `main`, folder `/ (root)`. Your fork will be served at `https://<your-username>.github.io/light-spotting/` — register that as the Spotify redirect URI.
+
+**Local static server.** From the repo root:
+
+```sh
+npx serve -l 8080
+# or
+python -m http.server 8080
+```
+
+Then open [http://127.0.0.1:8080/](http://127.0.0.1:8080/) and register that exact URL as the Spotify redirect URI.
+
 ## Notes
 
-- Audio plays in the browser tab — keep it open while listening
-- Use `http://127.0.0.1:8080` — Spotify blocks `localhost` as a redirect URI; `127.0.0.1` is the allowed loopback form
-- Tokens are stored in `sessionStorage` — log in again after closing the tab
+- Audio plays in the browser tab — keep it open while listening.
+- Use `127.0.0.1` (not `localhost`) when serving locally — Spotify rejects `localhost` as a redirect URI.
+- Tokens are stored in `sessionStorage` — log in again after closing the tab.

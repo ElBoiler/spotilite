@@ -6,14 +6,26 @@
   <title>Spotilite</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="style.css">
-  <script>window.SPOTIFY_CLIENT_ID = '__SPOTIFY_CLIENT_ID__';</script>
 </head>
 <body>
   <div class="container">
     <h1>Spotilite</h1>
 
-    <section id="login-view">
+    <section id="credentials-view" hidden>
+      <p class="setup-hint">
+        Paste your Spotify <strong>Client ID</strong>.<br>
+        Get one at <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">developer.spotify.com/dashboard</a> &rarr; Create app.<br>
+        Register this exact Redirect URI in the app settings:<br>
+        <code id="redirect-uri-display"></code>
+      </p>
+      <input id="client-id-input" type="text" spellcheck="false" autocomplete="off"
+        placeholder="Spotify Client ID">
+      <button id="btn-save-client-id">Save &amp; continue</button>
+    </section>
+
+    <section id="login-view" hidden>
       <button id="btn-login">Login with Spotify</button>
+      <button id="btn-edit-credentials" class="link-button">Edit Client ID</button>
     </section>
 
     <section id="setup-view" hidden>
@@ -28,6 +40,7 @@
     <section id="player-view" hidden>
       <ul id="playlist-list" aria-label="Daily Mix playlists"></ul>
       <button id="btn-manage">✏ Edit playlists</button>
+      <button id="btn-edit-credentials-player" class="link-button">Edit Client ID</button>
 
       <div id="now-playing" aria-live="polite">
         <span id="track-name">—</span>
@@ -44,10 +57,6 @@
     <div id="error-msg" hidden></div>
   </div>
 
-  <!--
-    main.js loads the Spotify SDK dynamically after auth succeeds.
-    This avoids SDK/module load order race conditions.
-  -->
   <script type="module" src="main.js"></script>
 </body>
 </html>
