@@ -2,23 +2,16 @@
 
 // ─── Views ────────────────────────────────────────────────────────────────────
 
-export function showLoginView() {
-  document.getElementById('login-view').hidden  = false;
-  document.getElementById('setup-view').hidden  = true;
-  document.getElementById('player-view').hidden = true;
+const VIEWS = ['credentials-view', 'login-view', 'setup-view', 'player-view'];
+
+function showOnly(id) {
+  for (const v of VIEWS) document.getElementById(v).hidden = (v !== id);
 }
 
-export function showSetupView() {
-  document.getElementById('login-view').hidden  = true;
-  document.getElementById('setup-view').hidden  = false;
-  document.getElementById('player-view').hidden = true;
-}
-
-export function showPlayerView() {
-  document.getElementById('login-view').hidden  = true;
-  document.getElementById('setup-view').hidden  = true;
-  document.getElementById('player-view').hidden = false;
-}
+export function showCredentialsView() { showOnly('credentials-view'); }
+export function showLoginView()       { showOnly('login-view'); }
+export function showSetupView()       { showOnly('setup-view'); }
+export function showPlayerView()      { showOnly('player-view'); }
 
 export function getSetupInput() {
   return document.getElementById('setup-input').value;
@@ -26,6 +19,18 @@ export function getSetupInput() {
 
 export function setSetupInput(value) {
   document.getElementById('setup-input').value = value;
+}
+
+export function getClientIdInput() {
+  return document.getElementById('client-id-input').value;
+}
+
+export function setClientIdInput(value) {
+  document.getElementById('client-id-input').value = value;
+}
+
+export function setRedirectUriDisplay(uri) {
+  document.getElementById('redirect-uri-display').textContent = uri;
 }
 
 // ─── Error banner ─────────────────────────────────────────────────────────────
