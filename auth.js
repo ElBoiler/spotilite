@@ -219,7 +219,9 @@ export function getTokenExpiresIn() {
  * @param {Function} onFailed   - called if refresh fails; should prompt re-login
  */
 export function scheduleRefresh(clientId, expiresIn, onFailed) {
-  const ms = (expiresIn - 300) * 1000;
+  // Refresh 5 min before expiry. Clamp to 0 so an already-expired (or unknown)
+  // token triggers an immediate refresh instead of a negative-timeout edge case.
+  const ms = Math.max(0, (expiresIn - 300) * 1000);
   return setTimeout(async () => {
     try {
       const data = await refreshTokens(clientId);

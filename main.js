@@ -59,6 +59,7 @@ let activeUri     = null;
 let _player       = null;
 let _reconnecting = false;
 let _refreshTimer = null;
+let _reconnectTimer = null;
 
 // ─── Playlist storage (localStorage) ─────────────────────────────────────────
 
@@ -132,12 +133,25 @@ function playlistsToText(items) {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+function clearRefreshTimer() {
+  if (_refreshTimer) { clearTimeout(_refreshTimer); _refreshTimer = null; }
+}
+
+function clearReconnectTimer() {
+  if (_reconnectTimer) { clearTimeout(_reconnectTimer); _reconnectTimer = null; }
+}
+
+function forceLogout(message) {
+  clearRefreshTimer();
+  clearReconnectTimer();
+  clearTokens();
+  showLoginView();
+  if (message) showError(message);
+}
+
 function handleApiError(err, context) {
   if (err.status === 401) {
-    if (_refreshTimer) { clearTimeout(_refreshTimer); _refreshTimer = null; }
-    clearTokens();
-    showLoginView();
-    showError('Session expired. Please log in again.');
+    forceLogout('Session expired. Please log in again.');
   } else {
     showError(`${context}: ${err.message}`);
   }
@@ -201,6 +215,7 @@ async function handleNext() {
 function onReady(id) {
   deviceId = id;
   _reconnecting = false;
+  clearReconnectTimer();
   setControlsEnabled(true);
 }
 
@@ -210,7 +225,8 @@ function onNotReady(_id) {
   setControlsEnabled(false);
   showError('Reconnecting…');
   _player?.disconnect();
-  setTimeout(async () => {
+  _reconnectTimer = setTimeout(async () => {
+    _reconnectTimer = null;
     try {
       _player = await initPlayer(getAccessToken, onReady, onNotReady, onState, onSdkError);
     } catch (err) {
@@ -232,7 +248,9 @@ function onState(state) {
   isPaused = state.paused;
   updatePlayPauseButton(isPaused);
 
-  if (state.context?.uri) {
+  // Spotify fires player_state_changed on every progress tick; only re-render
+  // when the active context actually changes.
+  if (state.context?.uri && state.context.uri !== activeUri) {
     activeUri = state.context.uri;
     reRenderPlaylists();
   }
@@ -288,12 +306,11 @@ async function showPlayer() {
       showError(`Failed to load Spotify SDK: ${err.message}`);
     }
 
-    _refreshTimer = scheduleRefresh(getClientId(), getTokenExpiresIn() || 60, () => {
-      if (_refreshTimer) { clearTimeout(_refreshTimer); _refreshTimer = null; }
-      clearTokens();
-      showLoginView();
-      showError('Session expired. Please log in again.');
-    });
+    _refreshTimer = scheduleRefresh(
+      getClientId(),
+      getTokenExpiresIn() || 60,
+      () => forceLogout('Session expired. Please log in again.'),
+    );
 
     document.getElementById('btn-prev').addEventListener('click', handlePrev);
     document.getElementById('btn-playpause').addEventListener('click', handleTogglePlay);
@@ -324,9 +341,9 @@ function handleSaveClientId() {
   }
   const prev = getClientId();
   saveClientId(id);
-  // If the Client ID changed, any existing tokens belong to the old app.
+  // Existing tokens belong to the old Spotify app — drop them on change.
   if (prev && prev !== id) {
-    if (_refreshTimer) { clearTimeout(_refreshTimer); _refreshTimer = null; }
+    clearRefreshTimer();
     clearTokens();
   }
   hideError();
@@ -340,8 +357,9 @@ async function init() {
   document.getElementById('btn-save-playlists').addEventListener('click', handleSavePlaylists);
   document.getElementById('btn-manage').addEventListener('click', showSetup);
   document.getElementById('btn-save-client-id').addEventListener('click', handleSaveClientId);
-  document.getElementById('btn-edit-credentials').addEventListener('click', showCredentials);
-  document.getElementById('btn-edit-credentials-player').addEventListener('click', showCredentials);
+  for (const btn of document.querySelectorAll('.btn-edit-credentials')) {
+    btn.addEventListener('click', showCredentials);
+  }
 
   if (!getClientId()) {
     showCredentials();
