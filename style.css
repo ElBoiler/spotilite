@@ -138,6 +138,8 @@ h1 {
 #playlist-list li:hover        { color: #fff; background: #282828; }
 #playlist-list li.active       { color: #1DB954; font-weight: 600; }
 #playlist-list li .index-hint  { color: #535353; font-size: 0.75rem; margin-right: 0.3rem; }
+#playlist-list.disabled              { opacity: 0.5; pointer-events: none; }
+#playlist-list.disabled li:hover     { background: transparent; color: inherit; }
 
 /* ── Now playing ── */
 #now-playing {

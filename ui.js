@@ -99,14 +99,31 @@ export function updatePlayPauseButton(isPaused) {
 // ─── Controls state ───────────────────────────────────────────────────────────
 
 /**
- * Enable or disable all transport buttons and show/hide the status message.
+ * Enable or disable all transport buttons.
  * @param {boolean} enabled
  */
 export function setControlsEnabled(enabled) {
   ['btn-prev', 'btn-playpause', 'btn-next'].forEach(id => {
     document.getElementById(id).disabled = !enabled;
   });
-  document.getElementById('status-msg').textContent = enabled ? '' : 'Reconnecting…';
+}
+
+/**
+ * Set the status message under the controls. Pass '' to clear.
+ * @param {string} text
+ */
+export function setStatus(text) {
+  document.getElementById('status-msg').textContent = text;
+}
+
+/**
+ * Toggle the visual "disabled" state on the playlist list. Clicks are still
+ * gated in the handler — this is purely a visual cue.
+ * @param {boolean} disabled
+ */
+export function setPlaylistsDisabled(disabled) {
+  const list = document.getElementById('playlist-list');
+  if (list) list.classList.toggle('disabled', disabled);
 }
 
 // ─── Keyboard bindings ────────────────────────────────────────────────────────

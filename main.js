@@ -32,6 +32,8 @@ import {
   updateNowPlaying,
   updatePlayPauseButton,
   setControlsEnabled,
+  setStatus,
+  setPlaylistsDisabled,
   bindKeyboard,
   getSetupInput,
   setSetupInput,
@@ -150,6 +152,13 @@ function reRenderPlaylists() {
 // ─── Playlist selection ───────────────────────────────────────────────────────
 
 async function selectPlaylist(playlist) {
+  // Gate clicks until the SDK has registered a device with us.
+  // Without this, ?device_id=null is sent and Spotify returns 404.
+  if (!deviceId) {
+    showError('Still connecting to Spotify — please wait a moment.');
+    return;
+  }
+
   activeUri = playlist.uri;
   reRenderPlaylists();
 
@@ -158,6 +167,20 @@ async function selectPlaylist(playlist) {
     await playPlaylist(token, deviceId, playlist.uri);
     hideError();
   } catch (err) {
+    // Spotify's API sometimes 404s the first play after SDK 'ready' because
+    // the device hasn't propagated server-side yet. Retry once after a short
+    // delay before surfacing the error.
+    if (err.status === 404) {
+      await new Promise(r => setTimeout(r, 600));
+      try {
+        await playPlaylist(token, deviceId, playlist.uri);
+        hideError();
+        return;
+      } catch (retryErr) {
+        handleApiError(retryErr, 'Play playlist');
+        return;
+      }
+    }
     handleApiError(err, 'Play playlist');
   }
 }
@@ -202,13 +225,17 @@ function onReady(id) {
   deviceId = id;
   _reconnecting = false;
   setControlsEnabled(true);
+  setPlaylistsDisabled(false);
+  setStatus('');
 }
 
 function onNotReady(_id) {
   if (_reconnecting) return;
   _reconnecting = true;
+  deviceId = null;
   setControlsEnabled(false);
-  showError('Reconnecting…');
+  setPlaylistsDisabled(true);
+  setStatus('Reconnecting…');
   _player?.disconnect();
   setTimeout(async () => {
     try {
@@ -274,6 +301,8 @@ function handleSavePlaylists() {
 async function showPlayer() {
   showPlayerView();
   setControlsEnabled(false);
+  setPlaylistsDisabled(true);
+  setStatus('Connecting to Spotify…');
 
   // Load playlists from storage — no API call needed
   playlists = loadSavedPlaylists();
