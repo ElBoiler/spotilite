@@ -8,6 +8,7 @@ import {
   clearTokens,
   scheduleRefresh,
   getTokenExpiresIn,
+  refreshTokens,
 } from './auth.js';
 
 import {
@@ -134,6 +135,31 @@ function handleApiError(err, context) {
   }
 }
 
+/**
+ * Run an API call; if it fails with 401, try a single token refresh and retry
+ * once. The access token may have expired between scheduled refreshes (e.g. the
+ * laptop slept and the timer never fired) — refreshing on demand avoids ejecting
+ * the user when their refresh token is still good. A terminal refresh failure
+ * (dead refresh token) re-throws the 401 so handleApiError sends them to login.
+ *
+ * @template T
+ * @param {() => Promise<T>} fn  - performs the Spotify API call
+ * @returns {Promise<T>}
+ */
+async function withAuthRetry(fn) {
+  try {
+    return await fn();
+  } catch (err) {
+    if (err.status !== 401) throw err;
+    try {
+      await refreshTokens(clientId); // single-flight; rotates token in sessionStorage
+    } catch {
+      throw err; // terminal or transient refresh failure — surface the original 401
+    }
+    return fn(); // retry once with the fresh token; a second 401 propagates
+  }
+}
+
 function reRenderPlaylists() {
   renderPlaylists(playlists, activeUri, selectPlaylist);
 }
@@ -144,9 +170,8 @@ async function selectPlaylist(playlist) {
   activeUri = playlist.uri;
   reRenderPlaylists();
 
-  const token = getAccessToken();
   try {
-    await playPlaylist(token, deviceId, playlist.uri);
+    await withAuthRetry(() => playPlaylist(getAccessToken(), deviceId, playlist.uri));
     hideError();
   } catch (err) {
     handleApiError(err, 'Play playlist');
@@ -157,7 +182,7 @@ async function selectPlaylist(playlist) {
 
 async function handlePrev() {
   try {
-    await skipPrevious(getAccessToken());
+    await withAuthRetry(() => skipPrevious(getAccessToken()));
     hideError();
   } catch (err) {
     handleApiError(err, 'Skip previous');
@@ -165,12 +190,11 @@ async function handlePrev() {
 }
 
 async function handleTogglePlay() {
-  const token = getAccessToken();
   try {
     if (isPaused) {
-      await resumePlayback(token, deviceId);
+      await withAuthRetry(() => resumePlayback(getAccessToken(), deviceId));
     } else {
-      await pausePlayback(token);
+      await withAuthRetry(() => pausePlayback(getAccessToken()));
     }
     hideError();
   } catch (err) {
@@ -180,7 +204,7 @@ async function handleTogglePlay() {
 
 async function handleNext() {
   try {
-    await skipNext(getAccessToken());
+    await withAuthRetry(() => skipNext(getAccessToken()));
     hideError();
   } catch (err) {
     handleApiError(err, 'Skip next');
