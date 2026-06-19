@@ -20,6 +20,8 @@
       storeTokens,
       getAccessToken,
       clearTokens,
+      classifyRefreshError,
+      refreshTokens,
     } from '../auth.js';
 
     const out = document.getElementById('output');
@@ -82,6 +84,68 @@
     assert('clearTokens removes access_token', getAccessToken() === null);
     assert('clearTokens removes refresh_token', sessionStorage.getItem('refresh_token') === null);
     assert('clearTokens removes token_expiry', sessionStorage.getItem('token_expiry') === null);
+
+    // ── classifyRefreshError ──────────────────────────────────────────────────
+    assert('400 invalid_grant is terminal',
+      classifyRefreshError({ status: 400, body: { error: 'invalid_grant' } }) === 'terminal');
+    assert('401 from token endpoint is terminal',
+      classifyRefreshError({ status: 401, body: null }) === 'terminal');
+    assert('429 is transient',
+      classifyRefreshError({ status: 429, body: null }) === 'transient');
+    assert('503 is transient',
+      classifyRefreshError({ status: 503, body: null }) === 'transient');
+    assert('400 with other error is transient',
+      classifyRefreshError({ status: 400, body: { error: 'invalid_request' } }) === 'transient');
+    assert('network failure (status 0) is transient',
+      classifyRefreshError({ status: 0, body: null }) === 'transient');
+
+    // ── refreshTokens: single-flight + error kinds (fetch stubbed) ─────────────
+    const realFetch = globalThis.fetch;
+
+    // Single-flight: two concurrent refreshes issue exactly one POST.
+    {
+      sessionStorage.setItem('refresh_token', 'ref_live');
+      let calls = 0;
+      globalThis.fetch = async () => {
+        calls++;
+        await new Promise(r => setTimeout(r, 20)); // keep both callers in-flight
+        return new Response(
+          JSON.stringify({ access_token: 'tok_refreshed', expires_in: 3600 }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      };
+      const [a, b] = await Promise.all([refreshTokens('cid'), refreshTokens('cid')]);
+      assert('single-flight: concurrent refreshes issue one POST', calls === 1, `got ${calls}`);
+      assert('single-flight: both callers get the same token',
+        a.access_token === 'tok_refreshed' && b.access_token === 'tok_refreshed');
+      assert('single-flight: stores the refreshed access token', getAccessToken() === 'tok_refreshed');
+    }
+
+    // Terminal: 401 from the token endpoint surfaces err.kind === 'terminal'.
+    {
+      sessionStorage.setItem('refresh_token', 'ref_live');
+      globalThis.fetch = async () =>
+        new Response(JSON.stringify({ error: 'invalid_client' }),
+          { status: 401, headers: { 'Content-Type': 'application/json' } });
+      let kind = null;
+      try { await refreshTokens('cid'); } catch (e) { kind = e.kind; }
+      assert('refreshTokens: 401 surfaces kind=terminal', kind === 'terminal', `got ${kind}`);
+    }
+
+    // Transient: 500 surfaces err.kind === 'transient' and does NOT clear tokens.
+    {
+      sessionStorage.setItem('refresh_token', 'ref_keep');
+      globalThis.fetch = async () =>
+        new Response('upstream error', { status: 500 });
+      let kind = null;
+      try { await refreshTokens('cid'); } catch (e) { kind = e.kind; }
+      assert('refreshTokens: 500 surfaces kind=transient', kind === 'transient', `got ${kind}`);
+      assert('refreshTokens: transient failure keeps refresh_token',
+        sessionStorage.getItem('refresh_token') === 'ref_keep');
+    }
+
+    globalThis.fetch = realFetch; // restore
+    clearTokens();
 
     // ── Summary ───────────────────────────────────────────────────────────────
     out.innerHTML += `\n${passed} passed, ${failed} failed`;

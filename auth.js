@@ -174,28 +174,85 @@ export function clearTokens() {
 // ─── Token refresh ────────────────────────────────────────────────────────────
 
 /**
+ * Classify a failed token-refresh response as terminal or transient.
+ *
+ * Terminal failures mean the refresh token is dead and re-auth is the only
+ * recovery (per Spotify's July 2026 6-month expiry change: discard, don't retry).
+ * Transient failures (network, rate limit, server error) leave the refresh token
+ * valid, so the caller should keep it and retry later.
+ *
+ * @param {{ status: number, body: object|null }} info
+ *   status - HTTP status (0 for a network-level failure)
+ *   body   - parsed JSON error body, or null if unavailable
+ * @returns {'terminal'|'transient'}
+ */
+export function classifyRefreshError({ status, body }) {
+  // Expired/revoked refresh token: Spotify returns 400 invalid_grant.
+  if (status === 400 && body?.error === 'invalid_grant') return 'terminal';
+  // Token endpoint 401 means client misconfig — retrying won't help.
+  if (status === 401) return 'terminal';
+  // Rate limited or server-side error — token is fine, try again later.
+  if (status === 429 || status >= 500) return 'transient';
+  // Anything else (network failure status 0, unexpected 4xx): default to
+  // transient so an ambiguous blip never needlessly logs the user out.
+  return 'transient';
+}
+
+// Single-flight guard: the scheduled timer and on-demand 401 retries can request
+// a refresh near-simultaneously. Spotify rotates the refresh token, so two
+// parallel POSTs would let the second reuse an already-consumed token and get a
+// spurious invalid_grant. Concurrent callers share one in-flight promise instead.
+let _refreshing = null;
+
+/**
  * Refresh the access token using the stored refresh token.
  * Spotify may rotate the refresh token — always overwrite the stored value.
+ *
+ * On failure throws an Error with `.kind` set to 'terminal' or 'transient'
+ * (see classifyRefreshError). Concurrent calls share a single in-flight request.
+ *
  * @param {string} clientId
  * @returns {Promise<object>} new token response with expires_in
  */
-export async function refreshTokens(clientId) {
-  const refreshToken = sessionStorage.getItem('refresh_token');
-  if (!refreshToken) throw new Error('No refresh token stored');
+export function refreshTokens(clientId) {
+  if (_refreshing) return _refreshing;
+  _refreshing = doRefresh(clientId).finally(() => { _refreshing = null; });
+  return _refreshing;
+}
 
-  const res = await fetch(TOKEN_URL, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body:    new URLSearchParams({
-      grant_type:    'refresh_token',
-      refresh_token: refreshToken,
-      client_id:     clientId,
-    }),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Token refresh failed (${res.status}): ${text}`);
+async function doRefresh(clientId) {
+  const refreshToken = sessionStorage.getItem('refresh_token');
+  if (!refreshToken) {
+    const err = new Error('No refresh token stored');
+    err.kind = 'terminal';
+    throw err;
   }
+
+  let res;
+  try {
+    res = await fetch(TOKEN_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body:    new URLSearchParams({
+        grant_type:    'refresh_token',
+        refresh_token: refreshToken,
+        client_id:     clientId,
+      }),
+    });
+  } catch (e) {
+    // Network-level failure (offline, DNS, CORS abort) — no HTTP response.
+    const err = new Error(`Token refresh failed (network): ${e.message}`);
+    err.kind = 'transient';
+    throw err;
+  }
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    const err  = new Error(`Token refresh failed (${res.status}): ${body ? JSON.stringify(body) : ''}`);
+    err.kind   = classifyRefreshError({ status: res.status, body });
+    throw err;
+  }
+
   const data = await res.json();
   storeTokens(data); // overwrites access_token and (if present) refresh_token
   return data;
@@ -210,13 +267,21 @@ export function getTokenExpiresIn() {
   return Math.max(0, Math.floor((expiry - Date.now()) / 1000));
 }
 
+// Retry delay (seconds) after a transient refresh failure, while the current
+// access token is still valid. Kept short so we recover quickly from a blip.
+const TRANSIENT_RETRY_SECONDS = 30;
+
 /**
  * Schedule a token refresh (expires_in - 300) seconds from now.
  * Recursively reschedules itself after each successful refresh.
  *
+ * On a terminal failure (dead refresh token) calls onFailed() to prompt re-login.
+ * On a transient failure (network/5xx/429) keeps the token and retries shortly,
+ * only giving up (onFailed) once the access token has actually expired.
+ *
  * @param {string}   clientId
  * @param {number}   expiresIn  - seconds until expiry (from token response)
- * @param {Function} onFailed   - called if refresh fails; should prompt re-login
+ * @param {Function} onFailed   - called if refresh fails terminally; should prompt re-login
  */
 export function scheduleRefresh(clientId, expiresIn, onFailed) {
   const ms = (expiresIn - 300) * 1000;
@@ -228,7 +293,12 @@ export function scheduleRefresh(clientId, expiresIn, onFailed) {
       scheduleRefresh(clientId, data.expires_in, onFailed);
     } catch (e) {
       console.error('Token refresh failed:', e);
-      onFailed();
+      if (e.kind === 'transient' && getTokenExpiresIn() > 0) {
+        // Token still valid — ride out the blip and try again soon.
+        scheduleRefresh(clientId, TRANSIENT_RETRY_SECONDS + 300, onFailed);
+      } else {
+        onFailed();
+      }
     }
   }, ms);
 }
