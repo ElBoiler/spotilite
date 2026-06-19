@@ -10,11 +10,18 @@ const SCOPES = [
   'playlist-read-private',
 ].join(' ');
 
-// Spotify prohibits 'localhost' as a redirect URI; 127.0.0.1 is explicitly allowed.
-// Access the app at http://127.0.0.1:8080 (not localhost:8080).
-const REDIRECT_URI = 'http://127.0.0.1:8080';
 const TOKEN_URL    = 'https://accounts.spotify.com/api/token';
 const AUTH_URL     = 'https://accounts.spotify.com/authorize';
+
+// Spotify requires an exact-match redirect URI registered in the dashboard.
+// Derive it from the current page so the same code works on GitHub Pages
+// or any local static server. Note: when serving locally, Spotify prohibits
+// 'localhost' — use 127.0.0.1.
+export function getRedirectUri() {
+  const { origin, pathname } = window.location;
+  const base = pathname.replace(/index\.html$/, '');
+  return origin + (base.endsWith('/') ? base : base + '/');
+}
 
 // ─── PKCE helpers ─────────────────────────────────────────────────────────────
 
@@ -71,7 +78,7 @@ export async function startAuth(clientId) {
   const params = new URLSearchParams({
     client_id:             clientId,
     response_type:         'code',
-    redirect_uri:          REDIRECT_URI,
+    redirect_uri:          getRedirectUri(),
     code_challenge_method: 'S256',
     code_challenge:        challenge,
     state,
@@ -108,7 +115,7 @@ export async function handleCallback(clientId) {
   storeTokens(tokens);
 
   // Remove code/state from URL without a page reload
-  window.history.replaceState({}, '', '/');
+  window.history.replaceState({}, '', getRedirectUri());
 
   return tokens;
 }
@@ -127,7 +134,7 @@ export async function exchangeCode(code, verifier, clientId) {
     body:    new URLSearchParams({
       grant_type:    'authorization_code',
       code,
-      redirect_uri:  REDIRECT_URI,
+      redirect_uri:  getRedirectUri(),
       client_id:     clientId,
       code_verifier: verifier,
     }),

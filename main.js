@@ -9,6 +9,7 @@ import {
   scheduleRefresh,
   getTokenExpiresIn,
   refreshTokens,
+  getRedirectUri,
 } from './auth.js';
 
 import {
@@ -22,6 +23,7 @@ import {
 import { initPlayer } from './player.js';
 
 import {
+  showCredentialsView,
   showLoginView,
   showSetupView,
   showPlayerView,
@@ -31,17 +33,26 @@ import {
   updateNowPlaying,
   updatePlayPauseButton,
   setControlsEnabled,
+  setStatus,
+  setPlaylistsDisabled,
   bindKeyboard,
   getSetupInput,
   setSetupInput,
+  getClientIdInput,
+  setClientIdInput,
+  setRedirectUriDisplay,
 } from './ui.js';
 
 // ─── Module-level state ───────────────────────────────────────────────────────
 
-const clientId = window.SPOTIFY_CLIENT_ID;
-if (!clientId) {
-  document.body.textContent = 'Error: SPOTIFY_CLIENT_ID is not configured. Did you pass -e SPOTIFY_CLIENT_ID=... to docker run?';
-  throw new Error('SPOTIFY_CLIENT_ID is not set');
+const CLIENT_ID_KEY = 'spotify_client_id';
+
+function getClientId() {
+  return (localStorage.getItem(CLIENT_ID_KEY) || '').trim();
+}
+
+function saveClientId(id) {
+  localStorage.setItem(CLIENT_ID_KEY, id.trim());
 }
 
 let deviceId      = null;
@@ -152,7 +163,7 @@ async function withAuthRetry(fn) {
   } catch (err) {
     if (err.status !== 401) throw err;
     try {
-      await refreshTokens(clientId); // single-flight; rotates token in sessionStorage
+      await refreshTokens(getClientId()); // single-flight; rotates token in sessionStorage
     } catch {
       throw err; // terminal or transient refresh failure — surface the original 401
     }
@@ -167,6 +178,13 @@ function reRenderPlaylists() {
 // ─── Playlist selection ───────────────────────────────────────────────────────
 
 async function selectPlaylist(playlist) {
+  // Gate clicks until the SDK has registered a device with us.
+  // Without this, ?device_id=null is sent and Spotify returns 404.
+  if (!deviceId) {
+    showError('Still connecting to Spotify — please wait a moment.');
+    return;
+  }
+
   activeUri = playlist.uri;
   reRenderPlaylists();
 
@@ -174,6 +192,20 @@ async function selectPlaylist(playlist) {
     await withAuthRetry(() => playPlaylist(getAccessToken(), deviceId, playlist.uri));
     hideError();
   } catch (err) {
+    // Spotify's API sometimes 404s the first play after SDK 'ready' because
+    // the device hasn't propagated server-side yet. Retry once after a short
+    // delay before surfacing the error.
+    if (err.status === 404) {
+      await new Promise(r => setTimeout(r, 600));
+      try {
+        await playPlaylist(token, deviceId, playlist.uri);
+        hideError();
+        return;
+      } catch (retryErr) {
+        handleApiError(retryErr, 'Play playlist');
+        return;
+      }
+    }
     handleApiError(err, 'Play playlist');
   }
 }
@@ -217,13 +249,17 @@ function onReady(id) {
   deviceId = id;
   _reconnecting = false;
   setControlsEnabled(true);
+  setPlaylistsDisabled(false);
+  setStatus('');
 }
 
 function onNotReady(_id) {
   if (_reconnecting) return;
   _reconnecting = true;
+  deviceId = null;
   setControlsEnabled(false);
-  showError('Reconnecting…');
+  setPlaylistsDisabled(true);
+  setStatus('Reconnecting…');
   _player?.disconnect();
   setTimeout(async () => {
     try {
@@ -289,6 +325,8 @@ function handleSavePlaylists() {
 async function showPlayer() {
   showPlayerView();
   setControlsEnabled(false);
+  setPlaylistsDisabled(true);
+  setStatus('Connecting to Spotify…');
 
   // Load playlists from storage — no API call needed
   playlists = loadSavedPlaylists();
@@ -303,7 +341,7 @@ async function showPlayer() {
       showError(`Failed to load Spotify SDK: ${err.message}`);
     }
 
-    _refreshTimer = scheduleRefresh(clientId, getTokenExpiresIn() || 60, () => {
+    _refreshTimer = scheduleRefresh(getClientId(), getTokenExpiresIn() || 60, () => {
       if (_refreshTimer) { clearTimeout(_refreshTimer); _refreshTimer = null; }
       clearTokens();
       showLoginView();
@@ -323,17 +361,50 @@ async function showPlayer() {
   }
 }
 
+// ─── Credentials view ────────────────────────────────────────────────────────
+
+function showCredentials() {
+  setRedirectUriDisplay(getRedirectUri());
+  setClientIdInput(getClientId());
+  showCredentialsView();
+}
+
+function handleSaveClientId() {
+  const id = getClientIdInput().trim();
+  if (!id) {
+    showError('Client ID cannot be empty.');
+    return;
+  }
+  const prev = getClientId();
+  saveClientId(id);
+  // If the Client ID changed, any existing tokens belong to the old app.
+  if (prev && prev !== id) {
+    if (_refreshTimer) { clearTimeout(_refreshTimer); _refreshTimer = null; }
+    clearTokens();
+  }
+  hideError();
+  showLoginView();
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 async function init() {
-  document.getElementById('btn-login').addEventListener('click', () => startAuth(clientId));
+  document.getElementById('btn-login').addEventListener('click', () => startAuth(getClientId()));
   document.getElementById('btn-save-playlists').addEventListener('click', handleSavePlaylists);
   document.getElementById('btn-manage').addEventListener('click', showSetup);
+  document.getElementById('btn-save-client-id').addEventListener('click', handleSaveClientId);
+  document.getElementById('btn-edit-credentials').addEventListener('click', showCredentials);
+  document.getElementById('btn-edit-credentials-player').addEventListener('click', showCredentials);
+
+  if (!getClientId()) {
+    showCredentials();
+    return;
+  }
 
   const params = new URLSearchParams(window.location.search);
   if (params.has('code') || params.has('error')) {
     try {
-      const tokens = await handleCallback(clientId);
+      const tokens = await handleCallback(getClientId());
       if (tokens === null) { showLoginView(); return; }
     } catch (err) {
       showError(err.message);
