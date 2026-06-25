@@ -45,48 +45,6 @@ async function apiFetch(accessToken, path, options = {}) {
   return res.json();
 }
 
-// ─── Playlists ────────────────────────────────────────────────────────────────
-
-/**
- * Fetch all followed playlists and filter for Daily Mix entries.
- * Daily Mixes are owned by Spotify (owner.id === 'spotify') and have names
- * starting with 'Daily Mix'. The name filter is locale-specific — owner.id
- * is the authoritative check.
- *
- * Paginates automatically (max 50 per page).
- *
- * @param {string} accessToken
- * @returns {Promise<Array<{name: string, uri: string, id: string}>>} sorted by name
- */
-export async function fetchDailyMixes(accessToken) {
-  const mixes = [];
-  let path = '/me/playlists?limit=50';
-
-  while (path) {
-    const data = await apiFetch(accessToken, path);
-
-    const filtered = (data.items || []).filter(
-      p => p && p.owner?.id === 'spotify'
-    );
-    mixes.push(...filtered);
-
-    // data.next is the full URL; strip the base to get the path
-    path = data.next ? data.next.replace(API, '') : null;
-  }
-
-  return mixes.sort((a, b) => a.name.localeCompare(b.name));
-}
-
-/**
- * Fetch a single playlist by ID.
- * @param {string} accessToken
- * @param {string} id - Spotify playlist ID
- * @returns {Promise<{id: string, name: string, uri: string}>}
- */
-export async function fetchPlaylistById(accessToken, id) {
-  return apiFetch(accessToken, `/playlists/${encodeURIComponent(id)}?fields=id%2Cname%2Curi&market=from_token`);
-}
-
 // ─── Playback ─────────────────────────────────────────────────────────────────
 
 /**
