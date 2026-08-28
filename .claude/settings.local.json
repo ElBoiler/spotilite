@@ -6,7 +6,8 @@
       "Bash(git add *)",
       "Bash(git commit *)",
       "Bash(git mv *)",
-      "Bash(git rm *)"
+      "Bash(git rm *)",
+      "Bash(grep -vE '\\\\.\\(png|jpg|jpeg|gif|svg|ico|woff|ttf|lock\\)$')"
     ]
   }
 }
