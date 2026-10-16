@@ -145,7 +145,30 @@ h1 {
 #now-playing {
   min-height: 2.8rem;
   margin-bottom: 0.75rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
 }
+
+#track-info { flex: 1; min-width: 0; }
+
+#track-actions { display: flex; gap: 0.1rem; }
+
+#track-actions button {
+  background: none;
+  border: none;
+  color: #b3b3b3;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0.25rem 0.4rem;
+  border-radius: 4px;
+  line-height: 1;
+  transition: background 0.1s, color 0.1s;
+}
+
+#track-actions button:hover:not(:disabled) { background: #282828; color: #fff; }
+#track-actions button:disabled { opacity: 0.4; cursor: default; }
+#btn-like.liked { color: #1DB954; }
 
 #track-name  { display: block; font-weight: 600; font-size: 0.875rem; }
 #artist-name { display: block; font-size: 0.8rem; color: #b3b3b3; margin-top: 0.1rem; }

@@ -8,6 +8,8 @@ const SCOPES = [
   'user-read-playback-state',
   'user-modify-playback-state',
   'playlist-read-private',
+  'user-library-read',
+  'user-library-modify',
 ].join(' ');
 
 const TOKEN_URL    = 'https://accounts.spotify.com/api/token';

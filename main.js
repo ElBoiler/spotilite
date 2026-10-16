@@ -18,6 +18,9 @@ import {
   pausePlayback,
   skipNext,
   skipPrevious,
+  isInLibrary,
+  saveToLibrary,
+  removeFromLibrary,
 } from './api.js';
 
 import { initPlayer } from './player.js';
@@ -32,6 +35,8 @@ import {
   renderPlaylists,
   updateNowPlaying,
   updatePlayPauseButton,
+  updateLikeButton,
+  setTrackActionsEnabled,
   setControlsEnabled,
   setStatus,
   setPlaylistsDisabled,
@@ -62,6 +67,8 @@ let activeUri     = null;
 let _player       = null;
 let _reconnecting = false;
 let _refreshTimer = null;
+let currentTrackUri = null;  // spotify:track:… of the song now playing
+let isLiked         = false;
 
 // ─── Playlist storage (localStorage) ─────────────────────────────────────────
 
@@ -243,6 +250,68 @@ async function handleNext() {
   }
 }
 
+// ─── Like / share ─────────────────────────────────────────────────────────────
+
+function trackUrl(uri) {
+  return `https://open.spotify.com/track/${uri.split(':').pop()}`;
+}
+
+/** Explain a 403 from the library endpoints: old tokens lack the new scopes. */
+function handleLibraryError(err, context) {
+  if (err.status === 403) {
+    showError(`${context}: missing permission. Close this tab, reopen Spotilite and log in again to grant access to your Liked Songs.`);
+  } else {
+    handleApiError(err, context);
+  }
+}
+
+async function refreshLikeState(uri) {
+  try {
+    const liked = await withAuthRetry(() => isInLibrary(getAccessToken(), uri));
+    if (uri !== currentTrackUri) return; // track changed while we were waiting
+    isLiked = liked;
+    updateLikeButton(isLiked);
+  } catch (err) {
+    if (uri === currentTrackUri) handleLibraryError(err, 'Check liked');
+  }
+}
+
+async function handleLike() {
+  const uri = currentTrackUri;
+  if (!uri) return;
+  const wasLiked = isLiked;
+  isLiked = !wasLiked;
+  updateLikeButton(isLiked); // optimistic
+  try {
+    await withAuthRetry(() => wasLiked
+      ? removeFromLibrary(getAccessToken(), uri)
+      : saveToLibrary(getAccessToken(), uri));
+    hideError();
+  } catch (err) {
+    if (uri === currentTrackUri) {
+      isLiked = wasLiked;
+      updateLikeButton(isLiked);
+    }
+    handleLibraryError(err, wasLiked ? 'Unlike' : 'Like');
+  }
+}
+
+async function handleShare() {
+  if (!currentTrackUri) return;
+  const url = trackUrl(currentTrackUri);
+  try {
+    await navigator.clipboard.writeText(url);
+    hideError();
+    setStatus('Link copied');
+    setTimeout(() => {
+      if (document.getElementById('status-msg').textContent === 'Link copied') setStatus('');
+    }, 2000);
+  } catch {
+    // Clipboard API needs a secure context and focus; show the link so it can be copied by hand.
+    showError(`Couldn't copy automatically. Song link: ${url}`);
+  }
+}
+
 // ─── SDK callbacks ────────────────────────────────────────────────────────────
 
 function onReady(id) {
@@ -279,6 +348,18 @@ function onState(state) {
   const artistName = track?.artists?.map(a => a.name).join(', ') ?? null;
 
   updateNowPlaying(trackName, artistName);
+
+  // Relinked tracks report the substitute; like/share the original the user sees in Spotify.
+  // Local files and episodes can't be saved via track URI, so only accept spotify:track:….
+  const uri = track?.linked_from?.uri ?? track?.uri ?? null;
+  const trackUri = uri?.startsWith('spotify:track:') ? uri : null;
+  if (trackUri !== currentTrackUri) {
+    currentTrackUri = trackUri;
+    isLiked = false;
+    updateLikeButton(false);
+    setTrackActionsEnabled(!!trackUri);
+    if (trackUri) refreshLikeState(trackUri);
+  }
 
   isPaused = state.paused;
   updatePlayPauseButton(isPaused);
@@ -351,11 +432,15 @@ async function showPlayer() {
     document.getElementById('btn-prev').addEventListener('click', handlePrev);
     document.getElementById('btn-playpause').addEventListener('click', handleTogglePlay);
     document.getElementById('btn-next').addEventListener('click', handleNext);
+    document.getElementById('btn-like').addEventListener('click', handleLike);
+    document.getElementById('btn-share').addEventListener('click', handleShare);
 
     bindKeyboard({
       togglePlay:    handleTogglePlay,
       next:          handleNext,
       prev:          handlePrev,
+      like:          handleLike,
+      share:         handleShare,
       selectByIndex: i => { if (playlists[i]) selectPlaylist(playlists[i]); },
     });
   }
