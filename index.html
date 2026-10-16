@@ -42,9 +42,14 @@
       <button id="btn-manage">✏ Edit playlists</button>
       <button id="btn-edit-credentials-player" class="link-button">Edit Client ID</button>
 
-      <div id="now-playing" aria-live="polite">
-        <span id="track-name">—</span>
-        <span id="artist-name"></span>
+      <div id="now-playing">
+        <div id="track-info" aria-live="polite">
+          <span id="track-name">—</span>
+          <span id="artist-name"></span>
+        </div>
+        <div id="track-actions">
+          <button id="btn-share" disabled title="Copy song link (S)" aria-label="Copy song link">🔗</button>
+        </div>
       </div>
 
       <div id="controls">

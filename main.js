@@ -32,6 +32,7 @@ import {
   renderPlaylists,
   updateNowPlaying,
   updatePlayPauseButton,
+  setShareEnabled,
   setControlsEnabled,
   setStatus,
   setPlaylistsDisabled,
@@ -62,6 +63,7 @@ let activeUri     = null;
 let _player       = null;
 let _reconnecting = false;
 let _refreshTimer = null;
+let currentTrackUri = null;  // spotify:track:… of the song now playing
 
 // ─── Playlist storage (localStorage) ─────────────────────────────────────────
 
@@ -243,6 +245,28 @@ async function handleNext() {
   }
 }
 
+// ─── Share ────────────────────────────────────────────────────────────────────
+
+function trackUrl(uri) {
+  return `https://open.spotify.com/track/${uri.split(':').pop()}`;
+}
+
+async function handleShare() {
+  if (!currentTrackUri) return;
+  const url = trackUrl(currentTrackUri);
+  try {
+    await navigator.clipboard.writeText(url);
+    hideError();
+    setStatus('Link copied');
+    setTimeout(() => {
+      if (document.getElementById('status-msg').textContent === 'Link copied') setStatus('');
+    }, 2000);
+  } catch {
+    // Clipboard API needs a secure context and focus; show the link so it can be copied by hand.
+    showError(`Couldn't copy automatically. Song link: ${url}`);
+  }
+}
+
 // ─── SDK callbacks ────────────────────────────────────────────────────────────
 
 function onReady(id) {
@@ -279,6 +303,15 @@ function onState(state) {
   const artistName = track?.artists?.map(a => a.name).join(', ') ?? null;
 
   updateNowPlaying(trackName, artistName);
+
+  // Relinked tracks report the substitute; share the original the user sees in Spotify.
+  // Local files and episodes have no open.spotify.com/track link, so only accept spotify:track:….
+  const uri = track?.linked_from?.uri ?? track?.uri ?? null;
+  const trackUri = uri?.startsWith('spotify:track:') ? uri : null;
+  if (trackUri !== currentTrackUri) {
+    currentTrackUri = trackUri;
+    setShareEnabled(!!trackUri);
+  }
 
   isPaused = state.paused;
   updatePlayPauseButton(isPaused);
@@ -351,11 +384,13 @@ async function showPlayer() {
     document.getElementById('btn-prev').addEventListener('click', handlePrev);
     document.getElementById('btn-playpause').addEventListener('click', handleTogglePlay);
     document.getElementById('btn-next').addEventListener('click', handleNext);
+    document.getElementById('btn-share').addEventListener('click', handleShare);
 
     bindKeyboard({
       togglePlay:    handleTogglePlay,
       next:          handleNext,
       prev:          handlePrev,
+      share:         handleShare,
       selectByIndex: i => { if (playlists[i]) selectPlaylist(playlists[i]); },
     });
   }

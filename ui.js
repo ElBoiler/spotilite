@@ -96,6 +96,14 @@ export function updatePlayPauseButton(isPaused) {
   btn.title        = isPaused ? 'Play (Space)' : 'Pause (Space)';
 }
 
+/**
+ * Enable or disable the share button (no track → nothing to share).
+ * @param {boolean} enabled
+ */
+export function setShareEnabled(enabled) {
+  document.getElementById('btn-share').disabled = !enabled;
+}
+
 // ─── Controls state ───────────────────────────────────────────────────────────
 
 /**
@@ -130,12 +138,14 @@ export function setPlaylistsDisabled(disabled) {
 
 /**
  * Bind keyboard shortcuts. Call once after the player view is shown.
- * @param {{ togglePlay: Function, next: Function, prev: Function, selectByIndex: Function }} handlers
+ * @param {{ togglePlay: Function, next: Function, prev: Function, share: Function, selectByIndex: Function }} handlers
  */
 export function bindKeyboard(handlers) {
   document.addEventListener('keydown', e => {
     // Don't hijack shortcuts when focus is in an input
     if (['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(e.target.tagName)) return;
+    // Leave browser shortcuts (Ctrl+S, Cmd+L, …) alone
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
 
     switch (e.key) {
       case ' ':
@@ -149,6 +159,10 @@ export function bindKeyboard(handlers) {
       case 'ArrowLeft':
         e.preventDefault();
         handlers.prev();
+        break;
+      case 's':
+      case 'S':
+        handlers.share();
         break;
       default:
         if (e.key >= '1' && e.key <= '6') {
