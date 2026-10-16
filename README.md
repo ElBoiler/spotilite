@@ -13,7 +13,7 @@ Browse your saved playlists and control playback from a clean web UI.
 
 1. Go to [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) and click **Create app**.
 2. Under **Redirect URIs** add the URL where you'll open Spotilite — **exactly**, including the trailing slash:
-   - Hosted: `https://<your-github-username>.github.io/light-spotting/`
+   - Hosted: `https://<your-github-username>.github.io/spotilite/`
    - Local:  `http://127.0.0.1:8080/` *(Spotify blocks `localhost` — use the IP)*
 3. Save the app and copy the **Client ID**.
 4. Open Spotilite, paste the Client ID when prompted, click **Save**.
@@ -36,7 +36,7 @@ That's it. Your Client ID and playlists are stored in your browser's `localStora
 
 The whole app is static files. To host your own copy:
 
-**GitHub Pages (recommended).** Fork this repo, then in your fork's *Settings → Pages*, set source to **Deploy from a branch**, branch `main`, folder `/ (root)`. Your fork will be served at `https://<your-username>.github.io/light-spotting/` — register that as the Spotify redirect URI.
+**GitHub Pages (recommended).** Fork this repo, then in your fork's *Settings → Pages*, set source to **Deploy from a branch**, branch `main`, folder `/ (root)`. Your fork will be served at `https://<your-username>.github.io/spotilite/` — register that as the Spotify redirect URI.
 
 **Local static server.** From the repo root:
 
