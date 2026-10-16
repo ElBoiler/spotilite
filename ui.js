@@ -97,25 +97,11 @@ export function updatePlayPauseButton(isPaused) {
 }
 
 /**
- * @param {boolean} liked
- */
-export function updateLikeButton(liked) {
-  const btn       = document.getElementById('btn-like');
-  btn.textContent = liked ? '♥' : '♡';
-  btn.classList.toggle('liked', liked);
-  btn.setAttribute('aria-pressed', String(liked));
-  btn.setAttribute('aria-label', liked ? 'Remove from Liked Songs' : 'Like');
-  btn.title       = liked ? 'Remove from Liked Songs (L)' : 'Like (L)';
-}
-
-/**
- * Enable or disable the like/share buttons (no track → nothing to act on).
+ * Enable or disable the share button (no track → nothing to share).
  * @param {boolean} enabled
  */
-export function setTrackActionsEnabled(enabled) {
-  ['btn-like', 'btn-share'].forEach(id => {
-    document.getElementById(id).disabled = !enabled;
-  });
+export function setShareEnabled(enabled) {
+  document.getElementById('btn-share').disabled = !enabled;
 }
 
 // ─── Controls state ───────────────────────────────────────────────────────────
@@ -152,7 +138,7 @@ export function setPlaylistsDisabled(disabled) {
 
 /**
  * Bind keyboard shortcuts. Call once after the player view is shown.
- * @param {{ togglePlay: Function, next: Function, prev: Function, like: Function, share: Function, selectByIndex: Function }} handlers
+ * @param {{ togglePlay: Function, next: Function, prev: Function, share: Function, selectByIndex: Function }} handlers
  */
 export function bindKeyboard(handlers) {
   document.addEventListener('keydown', e => {
@@ -173,10 +159,6 @@ export function bindKeyboard(handlers) {
       case 'ArrowLeft':
         e.preventDefault();
         handlers.prev();
-        break;
-      case 'l':
-      case 'L':
-        handlers.like();
         break;
       case 's':
       case 'S':

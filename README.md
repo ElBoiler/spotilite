@@ -29,7 +29,6 @@ That's it. Your Client ID and playlists are stored in your browser's `localStora
 | Play/Pause | ⏸ button   | `Space`  |
 | Next track | ⏭ button   | `→`      |
 | Previous   | ⏮ button   | `←`      |
-| Like / unlike song | ♡ button | `L` |
 | Copy song link     | 🔗 button | `S` |
 | Select mix | Click row  | `1`–`6`  |
 

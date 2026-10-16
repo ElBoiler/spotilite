@@ -168,7 +168,6 @@ h1 {
 
 #track-actions button:hover:not(:disabled) { background: #282828; color: #fff; }
 #track-actions button:disabled { opacity: 0.4; cursor: default; }
-#btn-like.liked { color: #1DB954; }
 
 #track-name  { display: block; font-weight: 600; font-size: 0.875rem; }
 #artist-name { display: block; font-size: 0.8rem; color: #b3b3b3; margin-top: 0.1rem; }

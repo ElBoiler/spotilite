@@ -94,35 +94,3 @@ export function skipNext(accessToken) {
 export function skipPrevious(accessToken) {
   return apiFetch(accessToken, '/me/player/previous', { method: 'POST' });
 }
-
-// ─── Library (liked songs) ────────────────────────────────────────────────────
-// Uses the generic /me/library endpoints (Feb 2026), which take Spotify URIs.
-
-/**
- * Check whether an item is saved in the user's library.
- * @param {string} accessToken
- * @param {string} uri  - e.g. 'spotify:track:...'
- * @returns {Promise<boolean>}
- */
-export async function isInLibrary(accessToken, uri) {
-  const res = await apiFetch(accessToken, `/me/library/contains?uris=${encodeURIComponent(uri)}`);
-  return Array.isArray(res) && res[0] === true;
-}
-
-/**
- * Save an item to the user's library (e.g. like a track).
- * @param {string} accessToken
- * @param {string} uri
- */
-export function saveToLibrary(accessToken, uri) {
-  return apiFetch(accessToken, `/me/library?uris=${encodeURIComponent(uri)}`, { method: 'PUT' });
-}
-
-/**
- * Remove an item from the user's library.
- * @param {string} accessToken
- * @param {string} uri
- */
-export function removeFromLibrary(accessToken, uri) {
-  return apiFetch(accessToken, `/me/library?uris=${encodeURIComponent(uri)}`, { method: 'DELETE' });
-}
